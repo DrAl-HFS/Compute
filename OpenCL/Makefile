@@ -5,8 +5,11 @@ OPT:= -g # Debug
 TARGET:= ocl1
 MAKEFILE:=Makefile
 
-SRC:= $(TARGET).cpp
-HDR:=  $(shell ls *.hpp)
+SRC_DIR:= .
+COM_DIR:= $(SRC_DIR)/Common
+
+SRC:= $(SRC_DIR)/$(TARGET).cpp
+HDR:=  $(shell ls $(COM_DIR)/*.hpp)
 OCL_VER:= 120
 
 DEFINES:= -DCL_TARGET_OPENCL_VERSION=$(OCL_VER)

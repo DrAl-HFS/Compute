@@ -19,8 +19,8 @@ typedef float Scalar;
 
 // Finally, the actual application: vector addition
 
-const char vecAddSrc[]=
-"__kernel void vecAdd(  __global float *pR, __global float *pA, __global float *pB, const size_t n)\n" \
+const char vecAddSrc[]= //  int error
+"__kernel void vecAdd(__global float *pR, __global float *pA, __global float *pB, const size_t n)\n" \
 "{ int id= get_global_id(0); if (id < n) { pR[id]= pA[id] + pB[id]; } }";
 
 struct HostArgs
@@ -131,8 +131,8 @@ public:
       //std::cout << "ar: %d %d %d %d" << ar[0], ar[1], ar[2], ar[3]);
 
       // Copy (sync.) input buffers
-      wr[0]= clEnqueueWriteBuffer(CSimpleOCL::q, device.hA, CL_TRUE, 0, device.bytes, host.pA, 0, NULL, evt+0);
-      wr[1]= clEnqueueWriteBuffer(CSimpleOCL::q, device.hB, CL_TRUE, 0, device.bytes, host.pB, 0, NULL, evt+1);
+      wr[0]= clEnqueueWriteBuffer(CSimpleOCL::q, device.hA, CL_BLOCKING, 0, device.bytes, host.pA, 0, NULL, evt+0);
+      wr[1]= clEnqueueWriteBuffer(CSimpleOCL::q, device.hB, CL_BLOCKING, 0, device.bytes, host.pB, 0, NULL, evt+1);
       //std::cout << "wr: %d %d" << wr[0], wr[1]);
 
       // Submit kernel job
@@ -144,7 +144,7 @@ public:
          clFinish(CSimpleOCL::q); // Global sync
 
          // Read the results (sync.) from the device
-         r= clEnqueueReadBuffer(CSimpleOCL::q, device.hR, CL_TRUE, 0, device.bytes, host.pR, 0, NULL, evt+3);
+         r= clEnqueueReadBuffer(CSimpleOCL::q, device.hR, CL_BLOCKING, 0, device.bytes, host.pR, 0, NULL, evt+3);
       }
       else { std::cout << "enqueue r=" << r << std::endl; }
       return(r >= 0);
@@ -165,8 +165,6 @@ public:
 }; // CVecAddOCL
 
 
-
-
 /***/
 
 int main (int argc, char *argv[])
@@ -174,9 +172,6 @@ int main (int argc, char *argv[])
    cl_device_id   idDev[MAX_DEV_ID]={0,};
    cl_uint        nDev= queryDev(idDev, MAX_DEV_ID);
    int r=-1;
-
-   //std::cout << sizeof(cl_device_info) << std::endl;
-   //std::cout << sizeof(cl_platform_info) << std::endl;
 
    if (nDev > 0)
    {
@@ -199,7 +194,10 @@ int main (int argc, char *argv[])
                if (re <= 1E-6) { r= 0; }
             }
          }
+         else { va.reportBuildLog(); }
       }
+      //std::cout << "Destructing..." << std::endl;
    }
+   //std::cout << "Exiting..." << std::endl;
    return(r);
 } // main
