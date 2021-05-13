@@ -1,5 +1,5 @@
 // ocl1.cpp - Minimal OpenCL device test, migrated to C++.
-// https://github.com/DrAl-HFS/Hacks.git
+// https://github.com/DrAl-HFS/Compute.git
 // Licence: AGPL3
 // (c) Project Contributors Apr - May 2021
 

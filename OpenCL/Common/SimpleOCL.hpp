@@ -1,5 +1,5 @@
 // SimpleOCL.hpp - C++ classes for simple OpenCL usage.
-// https://github.com/DrAl-HFS/Hacks.git
+// https://github.com/DrAl-HFS/Compute.git
 // Licence: AGPL3
 // (c) Project Contributors May 2021
 

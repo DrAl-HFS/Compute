@@ -1,5 +1,5 @@
 // StrTab.hpp - C++ classes for string table.
-// https://github.com/DrAl-HFS/Hacks.git
+// https://github.com/DrAl-HFS/Compute.git
 // Licence: AGPL3
 // (c) Project Contributors May 2021
 

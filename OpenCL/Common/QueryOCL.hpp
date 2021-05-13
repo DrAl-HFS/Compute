@@ -1,5 +1,5 @@
 // QueryOCL.hpp - OpenCl interface text query tools.
-// https://github.com/DrAl-HFS/Hacks.git
+// https://github.com/DrAl-HFS/Compute.git
 // Licence: AGPL3
 // (c) Project Contributors May 2021
 
@@ -52,7 +52,6 @@ public:
    }
 }; // DevInfo
 
-// Replacement for strncpy() which seems to be missing...
 int copyStrN (char *d, const char *s, int n)
 {
    int i= 0;
