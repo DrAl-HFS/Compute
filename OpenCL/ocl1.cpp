@@ -6,6 +6,7 @@
 #include <iostream>
 #include <cmath>
 
+#include "Common/Timing.hpp"
 #include "Common/SimpleOCL.hpp"
 #include "Common/QueryOCL.hpp"
 
@@ -17,9 +18,17 @@ typedef float Scalar;
 
 /***/
 
-// Finally, the actual application: vector addition
+// Vector addition, unaccelerated host routine
+void vecAdd (Scalar r[], const Scalar a[], const Scalar b[], const size_t n)
+{
+   for (size_t i= 0; i<n; i++) { r[i]= a[i] + b[i]; }
+} // vecAdd
 
-const char vecAddSrc[]= //  int error
+
+/***/
+
+// OpenCL kernel source
+const char vecAddSrc[]=
 "__kernel void vecAdd(__global float *pR, __global float *pA, __global float *pB, const size_t n)\n" \
 "{ int id= get_global_id(0); if (id < n) { pR[id]= pA[id] + pB[id]; } }";
 
@@ -93,7 +102,7 @@ Scalar sum (const Scalar v[], const size_t n)
    return(s);
 } // sum
 
-class CVecAddOCL : public CBuildOCL
+class CVecAddOCL : public CBuildOCL, public CElapsedTime
 {
 protected:
    // return number of work groups for local & problem size
@@ -115,7 +124,7 @@ public:
 
    //defaultBuild
 
-   bool execute (size_t lws)
+   bool execute (size_t lws, TimeValF *pDT=NULL)
    {
       size_t gws= lws * nwg(lws, host.n);
       cl_event evt[4];
@@ -128,11 +137,13 @@ public:
       ar[1]= clSetKernelArg(CBuildOCL::idKern, 1, sizeof(device.hA), &(device.hA));
       ar[2]= clSetKernelArg(CBuildOCL::idKern, 2, sizeof(device.hB), &(device.hB));
       ar[3]= clSetKernelArg(CBuildOCL::idKern, 3, sizeof(host.n), &(host.n));
+      if (pDT) { pDT[0]= elapsed(); }
       //std::cout << "ar: %d %d %d %d" << ar[0], ar[1], ar[2], ar[3]);
 
       // Copy (sync.) input buffers
       wr[0]= clEnqueueWriteBuffer(CSimpleOCL::q, device.hA, CL_BLOCKING, 0, device.bytes, host.pA, 0, NULL, evt+0);
       wr[1]= clEnqueueWriteBuffer(CSimpleOCL::q, device.hB, CL_BLOCKING, 0, device.bytes, host.pB, 0, NULL, evt+1);
+      if (pDT) { pDT[1]= elapsed(); }
       //std::cout << "wr: %d %d" << wr[0], wr[1]);
 
       // Submit kernel job
@@ -140,11 +151,13 @@ public:
 
       if (r >= 0)
       {
-         std::cout << "job enqueued" << std::endl;
+         //std::cout << "kernel enqueued" << std::endl;
          clFinish(CSimpleOCL::q); // Global sync
+         if (pDT) { pDT[2]= elapsed(); }
 
          // Read the results (sync.) from the device
          r= clEnqueueReadBuffer(CSimpleOCL::q, device.hR, CL_BLOCKING, 0, device.bytes, host.pR, 0, NULL, evt+3);
+         if (pDT) { pDT[3]= elapsed(); }
       }
       else { std::cout << "enqueue r=" << r << std::endl; }
       return(r >= 0);
@@ -162,10 +175,18 @@ public:
       if (all) { r&= CBuildOCL::release(all); }
       return(r);
    }
+
+   TimeValF hostTest (void)
+   {
+      elapsed();
+      vecAdd(host.pR, host.pA, host.pB, host.n);
+      return elapsed();
+   } // hostTest
 }; // CVecAddOCL
 
 
 /***/
+
 
 int main (int argc, char *argv[])
 {
@@ -176,22 +197,37 @@ int main (int argc, char *argv[])
    if (nDev > 0)
    {
       CVecAddOCL va;
+      TimeValF t[7];
+
       if (va.create(idDev[0]) && va.createArgs(1<<20))
       {
-         std::cout << "context created" << std::endl;
+         t[0]= va.elapsed();
+         std::cout << "context created: " << t[0] << "sec" << std::endl;
          if (va.defaultBuild(vecAddSrc,"vecAdd"))
          {
-            std::cout << "build OK" << std::endl;
+            t[1]= va.elapsed();
+            std::cout << "build OK: " << t[1] << "sec" << std::endl;
+
             va.initHostData();
 
-            if (va.execute(32))
+            t[2]= va.elapsed();
+            std::cout << "Data init: " << t[2] << "sec" << std::endl;
+
+            if (va.execute(32, t+3))
             {
+               std::cout << "execution:" << std::endl;
+               std::cout << "\targs:       " << t[3] << "sec"  << std::endl;
+               std::cout << "\tbuffers-in: " << t[4] << "sec"  << std::endl;
+               std::cout << "\tkernel:     " << t[5] << "sec"  << std::endl;
+               std::cout << "\tbuffer-out: " << t[6] << "sec"  << std::endl;
                Scalar s= va.sumR();
                Scalar e= va.getN();
                Scalar re= 2 * fabs(e-s) / (e + s);
                std::cout << "result: sum=" << s << " expected=" << e << std::endl;
                std::cout << "relative error=" << re << std::endl;
                if (re <= 1E-6) { r= 0; }
+
+               std::cout << "unaccelerated host: " << va.hostTest() << "sec"  << std::endl;
             }
          }
          else { va.reportBuildLog(); }
