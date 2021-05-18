@@ -65,7 +65,7 @@ public:
    {
       TimeValF diff= 0;
       TimeValF now= get();
-      if ((last > 0) && (now > 0)) { diff= now - last; }
+      if ((last > 0) && (now > last)) { diff= now - last; }
       last= now;
       return(diff);
    } // elapsed

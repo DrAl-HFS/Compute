@@ -13,6 +13,9 @@
 
 /***/
 
+#define MAX_PF_ID    2
+#define MAX_DEV_ID   4
+
 typedef float Scalar;
 
 
@@ -190,8 +193,9 @@ public:
 
 int main (int argc, char *argv[])
 {
+   cl_platform_id idPfm[MAX_PF_ID]={0,};
    cl_device_id   idDev[MAX_DEV_ID]={0,};
-   cl_uint        nDev= queryDev(idDev, MAX_DEV_ID);
+   cl_uint        nDev= queryDevPfm(idDev, MAX_DEV_ID, idPfm, MAX_PF_ID);
    int r=-1;
 
    if (nDev > 0)

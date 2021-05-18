@@ -10,9 +10,6 @@
 #define QUERY_OCL_HPP
 
 
-#define MAX_PF_ID    2
-#define MAX_DEV_ID   4
-
 // Function-encapsulation "functor" base class
 class InfoFunc
 {
@@ -86,15 +83,14 @@ bool addStr (CStrTabASCII& t, const InfoFunc& f, const cl_device_info tok[], con
    return(true);
 } // addStr
 
-int queryDev (cl_device_id idDev[], int maxD)
+int queryDevPfm (cl_device_id idDev[], int maxD, cl_platform_id idPfm[], int maxPfm)
 {
    CStrTabASCII st;
-   cl_platform_id idPfm[MAX_PF_ID]={0,};
    cl_uint nPfm, n;
    int nDev=0;
 
    std::cout << "Build target : OpenCl V" << CL_TARGET_OPENCL_VERSION << std::endl;
-   if (clGetPlatformIDs(MAX_PF_ID, idPfm, &nPfm) >= 0)
+   if ((maxPfm > 0) && (clGetPlatformIDs(maxPfm, idPfm, &nPfm) >= 0))
    {
       std::cout << nPfm << "platform(s):" << std::endl;
 
@@ -122,6 +118,6 @@ int queryDev (cl_device_id idDev[], int maxD)
       }
    }
    return(nDev);
-} // queryDev
+} // queryDevPfm
 
 #endif // QUERY_OCL_HPP
