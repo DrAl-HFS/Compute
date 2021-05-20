@@ -1,8 +1,17 @@
+# Makefile : OpenCL test builder, parameterised by commandline definition of variable <TNUM>
+# https://github.com/DrAl-HFS/Compute.git
+# Licence: AGPL3
+# (c) Project Contributors May 2021
+
+# define default parameter value
+TNUM?=1
+
 CC:= clang
 #OPT:= -Os # Min size (often faster on systems with limited cache)
 OPT:= -g # Debug
 
-TARGET:= ocl1
+
+TARGET:= ocl$(TNUM)
 MAKEFILE:=Makefile
 
 SRC_DIR:= .

@@ -65,13 +65,15 @@ public:
    {
       cl_int r=0;
       if (0 != q)
-      {//std::cout << "clReleaseCommandQueue()" << std::endl;
+      {
          r= clReleaseCommandQueue(q);
+         //std::cout << "clReleaseCommandQueue() - r=" << r << std::endl;
          q= 0;
       }
       if (0 != ctx)
-      {//std::cout << "clReleaseContext()" << std::endl;
-         r= clReleaseContext(ctx);
+      {
+         r= clReleaseContext(ctx); // mysterious segmentation fault here, depends where class declared (?)
+         //std::cout << "clReleaseContext() - r=" << r << std::endl;
          ctx= 0;
       }
       //idDev= 0;
@@ -150,6 +152,7 @@ public:
       //else
       return(r >= 0);
    } // release
+
 }; // CBuildOCL
 
 #endif // SIMPLE_OCL_HPP
