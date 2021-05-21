@@ -17,19 +17,21 @@
 #include <cstdlib>
 #endif
 
-typedef uint16_t StrTabIdx;
-typedef signed char StrTabElem;
+//typedef uint16_t StrTabIdx;
+//typedef signed char StrTabElem;
 
+// CONSIDER: better way of defining 'nul' singleton?
+// struct StrTabElem : public signed char { static const StrTabElem _nul; }
 
-class CStrTabBase
+template <typename TStrTabElem, typename TStrTabIdx> class CStrTabBase
 {
-static const StrTabElem _nul;
+static const TStrTabElem _nul; // singleton
 
 protected:
-   StrTabIdx   *pI;
-   StrTabElem  *pE;
-   StrTabIdx   maxI, maxE;
-   StrTabIdx   nI, nE;
+   TStrTabIdx   *pI;
+   TStrTabElem  *pE;
+   TStrTabIdx   maxI, maxE;
+   TStrTabIdx   nI, nE;
 
    CStrTabBase (int mI=0, int mE=0) : pI{NULL}, pE{NULL}, nI{0}, nE{0} { allocate(mI,mE); }
    ~CStrTabBase () { release(); }
@@ -40,12 +42,12 @@ protected:
       {
          if (NULL == pI)
          {
-            pI= new StrTabIdx[mI];
+            pI= new TStrTabIdx[mI];
             if (pI) { maxI= mI; }
          }
          if (NULL == pE)
          {
-            pE= new StrTabElem[mE];
+            pE= new TStrTabElem[mE];
             if (pE) { maxE= mE-1; }
          }
       }
@@ -85,7 +87,7 @@ protected:
    } // commitI
 
 
-   StrTabElem *operator [] (int i) const { return(pE + pI[i]); }
+   TStrTabElem *operator [] (int i) const { return(pE + pI[i]); }
 
 public:
    bool setup (void) // aka reset
@@ -98,7 +100,7 @@ public:
       if (pI && (maxI > 0))
       {
          pI[0]= 0;   // First string ready
-         for (StrTabIdx i=1; i<maxI; i++) { pI[i]= maxE; }
+         for (TStrTabIdx i=1; i<maxI; i++) { pI[i]= maxE; }
       }
       return(pI && pE);
    } // setup
@@ -106,14 +108,15 @@ public:
    bool valid (void) const { return((NULL != pI) && (NULL != pE)); }
    bool full (void) const { return((nI >= maxI) || (nE >= maxE)); }
    int elemAvail (void) const { return(maxE - nE); }
-   const StrTabElem *nul (void) const { return &_nul; }
+   const TStrTabElem *nul (void) const { return &_nul; }
 
 }; // CStrTabBase
 
-const StrTabElem CStrTabBase::_nul=0x0; // singleton ?
+// Singleton member must be defined globally
+template<typename TStrTabElem, typename TStrTabIdx> const TStrTabElem CStrTabBase<TStrTabElem,TStrTabIdx>::_nul=0x0;
 
 
-class CStrTabASCII : public CStrTabBase
+class CStrTabASCII : public CStrTabBase<signed char,uint16_t>
 {
 public:
    CStrTabASCII (int maxS=32, int expectLenS=29) : CStrTabBase(maxS,maxS*(expectLenS+1)) { ; }  // 1kbyte default
