@@ -3,12 +3,12 @@
 // Licence: AGPL3
 // (c) Project Contributors May 2021
 
-// A basic string table is useful for many hacks:
-// development using a complex API, simple parsing etc.
-// This example uses indices to eliminate the overhead
-// of numerous pointers (commonly 64bits under most OS,
-// at the time of writing) and maximise portability to
-// embedded applications where resources are limited.
+// A simple string table is useful for many hacks: development (test/debug)
+// using a complex API, crude parsing etc. Here the C++ string class is
+// deliberately avoided due to its "heavyweight" nature that limits portability
+// to embedded applications where resources are limited.
+// Instead a "low-level" array-of-char/asciz/cstring representation is used
+// with indices to reduce overheads associated with pointer handling.
 
 #ifndef STR_TAB_HPP
 #define STR_TAB_HPP
@@ -17,12 +17,40 @@
 #include <cstdlib>
 #endif
 
-//typedef uint16_t StrTabIdx;
-//typedef signed char StrTabElem;
-
 // CONSIDER: better way of defining 'nul' singleton?
 // struct StrTabElem : public signed char { static const StrTabElem _nul; }
 
+// CONSIDER: perhaps better to split into separate classes for element storage and for indices?
+
+template <typename TElem, typename TCount> class CTable
+{
+protected:
+   TElem  *pE;
+   TCount n, max;
+
+   CTable (int m=0) : pE{NULL}, n{0}, max{0} { allocate(m); }
+   ~CTable () { release(); }
+
+   bool allocate (int m)
+   {
+      if ((m > 0) && (NULL == pE))
+      {
+         n= max= 0;
+         pE= new TElem[m];
+         if (pE) { max= m-1; }
+      }
+   } // allocate
+
+   bool release ()
+   {
+      n= max= 0;
+      if (pE) { delete [] pE; pE= NULL; }
+      return(true);
+   } // release
+
+}; // CTable
+
+// Templated base class allows tuning for different applications
 template <typename TStrTabElem, typename TStrTabIdx> class CStrTabBase
 {
 static const TStrTabElem _nul; // singleton
