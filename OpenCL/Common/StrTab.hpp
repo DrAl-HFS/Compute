@@ -13,42 +13,9 @@
 #ifndef STR_TAB_HPP
 #define STR_TAB_HPP
 
-#ifdef DEBUG
-#include <cstdlib>
-#endif
+// Factorisation experiments
+#include "Table.hpp"
 
-// CONSIDER: better way of defining 'nul' singleton?
-// struct StrTabElem : public signed char { static const StrTabElem _nul; }
-
-// CONSIDER: perhaps better to split into separate classes for element storage and for indices?
-
-template <typename TElem, typename TCount> class CTable
-{
-protected:
-   TElem  *pE;
-   TCount n, max;
-
-   CTable (int m=0) : pE{NULL}, n{0}, max{0} { allocate(m); }
-   ~CTable () { release(); }
-
-   bool allocate (int m)
-   {
-      if ((m > 0) && (NULL == pE))
-      {
-         n= max= 0;
-         pE= new TElem[m];
-         if (pE) { max= m-1; }
-      }
-   } // allocate
-
-   bool release ()
-   {
-      n= max= 0;
-      if (pE) { delete [] pE; pE= NULL; }
-      return(true);
-   } // release
-
-}; // CTable
 
 // Templated base class allows tuning for different applications
 template <typename TStrTabElem, typename TStrTabIdx> class CStrTabBase
