@@ -23,7 +23,7 @@ OCL_VER:= 120
 
 DEFINES:= -DCL_TARGET_OPENCL_VERSION=$(OCL_VER)
 IDENT:= $(shell cat /etc/issue)
-ifneq (,$(findstring UBUNTU,$(IDENT)))
+ifneq (,$(findstring Ubuntu,$(IDENT)))
    HACKS:= -DOPENCL_LIB_200 # Fix for JetsonNano/Ubuntu library version issue (deprecation warning)
 endif
 #HACKS?=
