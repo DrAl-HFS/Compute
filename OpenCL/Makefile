@@ -22,7 +22,11 @@ HDR:=  $(shell ls $(COM_DIR)/*.hpp)
 OCL_VER:= 120
 
 DEFINES:= -DCL_TARGET_OPENCL_VERSION=$(OCL_VER)
-HACKS:= -DOPENCL_LIB_200 # Fix for JetsonNano/Ubuntu library version issue (deprecation warning)
+IDENT:= $(shell cat /etc/issue)
+ifneq (,$(findstring UBUNTU,$(IDENT)))
+   HACKS:= -DOPENCL_LIB_200 # Fix for JetsonNano/Ubuntu library version issue (deprecation warning)
+endif
+#HACKS?=
 LIBS:= -lOpenCL -lm -lstdc++
 
 all : $(TARGET) $(MAKEFILE)
