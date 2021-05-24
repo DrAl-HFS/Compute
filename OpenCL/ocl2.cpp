@@ -14,38 +14,45 @@
 
 /***/
 
+// Query parameters
 #define MAX_PF_ID    2
 #define MAX_DEV_ID   4
 
 
-/***/
+/* OpenCL kernel sources */
+
+// Generate a simple map of element indices - easily verified
+const char idxImgSrc[]=
+"kernel void image (__global uint *pI, const ushort2 def)\n" \
+"{ size_t x= get_global_id(0); if (x < def.x)" \
+"   { size_t y= get_global_id(1); if (y < def.y)" \
+"      {   size_t i= y * def.x + x;" // Compute 1D index using row stride <def.x>
+"          pI[i]= i; } } }";
+
+// Generate distance map of a centre point - visually verifiable
+const char dmapImgSrc[]=
+"kernel void image (__global uint *pI, const ushort2 def, const float2 c)\n" \
+"{ ushort2 u;"\
+"  float2 f;"\
+"  u.x= get_global_id(0);"\
+"  u.y= get_global_id(1);"\
+"  if ((u.x < def.x) && (u.y < def.y)) {" \
+"    f.x= u.x; f.y= u.y; "\
+"    uint s= distance(f,c);"\
+"    pI[(size_t)u.y * def.x + u.x]= s; } }";
 
 
 /***/
-
-// OpenCL kernel source
-const char imageSrc[]=
-"__kernel void image(__global uint *pI, const ushort2 def)\n" \
-"{ size_t iw= get_global_id(0); if (iw < def.x)" \
-"   { size_t ih= get_global_id(1); if (ih < def.y)" \
-"      {   size_t j= ih * def.x + iw;" // Compute 1D index using row stride <def.x>
-"          pI[j]= j; } } }";
-
 
 struct HostArgs : public CMapImage2D
 {
 public:
-   size_t n;
-
    HostArgs (void) : CMapImage2D() { ; }
 
    size_t allocate (size_t w, size_t h)
    {
-      n= CMapImage2D::allocate(w,h);
-      return(n * sizeof(*pI));
+      return(CMapImage2D::allocate(w,h) * sizeof(*pI));
    } // allocate
-
-   bool release (void) { n=0; return CMapImage2D::release(); }
 
    size_t nwg (size_t n, size_t l) const { return((n + l - 1) / l); }
 
@@ -112,11 +119,11 @@ public:
 
    //defaultBuild
 
-   bool execute (size_t lws[2], TimeValF *pDT=NULL)
+   bool execute (size_t lws[2], const cl_float2 vGeom[], const int nGeom, TimeValF *pDT=NULL)
    {
       size_t gws[2];
       cl_event evt[2];
-      cl_int r, wr[2], ar[2];
+      cl_int r, wr[2], ar[3];
 
       host.setGWS(gws, lws);
       //std::cout << "lws: " << lws[0] << ", " << lws[1] << std::endl;
@@ -125,6 +132,11 @@ public:
       // Set args on device
       ar[0]= clSetKernelArg(CBuildOCL::idKern, 0, sizeof(device.hI), &(device.hI));
       ar[1]= clSetKernelArg(CBuildOCL::idKern, 1, sizeof(host.def), &(host.def));
+      if (nGeom > 0)
+      {
+         int i= 0;
+         ar[2]= clSetKernelArg(CBuildOCL::idKern, 2+i, sizeof(vGeom[i]), vGeom+i);
+      }
       if (pDT) { pDT[0]= elapsed(); }
       //std::cout << "ar: " << ar[0] << ", " << ar[1] << std::endl;
 
@@ -137,12 +149,12 @@ public:
             std::cout << "kernel enqueued" << std::endl;
             r= clFinish(CSimpleOCL::q); // Global sync
 
-            if (pDT) { pDT[2]= elapsed(); }
+            if (pDT) { pDT[1]= elapsed(); }
             std::cout << "kernel completion= " << r << std::endl;
 
             // Read the results (sync.) from the device
             r= clEnqueueReadBuffer(CSimpleOCL::q, device.hI, CL_BLOCKING, 0, device.bytes, host.pI, 0, NULL, evt+1);
-            if (pDT) { pDT[3]= elapsed(); }
+            if (pDT) { pDT[2]= elapsed(); }
             //std::cout << "buffer read complete" << std::endl;
          }
          else { std::cout << "enqueue r=" << r << std::endl; }
@@ -189,34 +201,27 @@ int main (int argc, char *argv[])
    if (nDev > 0)
    {
       //CImageOCL img; // destruction causes segment violation inside clReleaseContext()
-      TimeValF t[4];
+      TimeValF t[5];
       size_t lws[2]={32,32};
 
       if (img.create(idDev[0]) && img.createArgs(256,256))
       {
+         cl_float2 c={128,128};
+
          t[0]= img.elapsed();
          std::cout << "context created: " << t[0] << "sec" << std::endl;
-         if (img.defaultBuild(imageSrc,"image"))
+         if (img.defaultBuild(dmapImgSrc,"image"))//idxImgSrc
          {
             t[1]= img.elapsed();
             std::cout << "build OK: " << t[1] << "sec" << std::endl;
 
-            if (img.execute(lws, t+1))
+            if (img.execute(lws, &c, 1, t+2))
             {
-               r= img.verify();
+               //r= img.verify();
                std::cout << "execution: r=" << r << std::endl;
-               /*std::cout << "\targs:       " << t[3] << "sec"  << std::endl;
-               std::cout << "\tbuffers-in: " << t[4] << "sec"  << std::endl;
-               std::cout << "\tkernel:     " << t[5] << "sec"  << std::endl;
-               std::cout << "\tbuffer-out: " << t[6] << "sec"  << std::endl;
-               Scalar s= va.sumR();
-               Scalar e= va.getN();
-               Scalar re= 2 * fabs(e-s) / (e + s);
-               std::cout << "result: sum=" << s << " expected=" << e << std::endl;
-               std::cout << "relative error=" << re << std::endl;
-               if (re <= 1E-6) { r= 0; }
-
-               std::cout << "unaccelerated host: " << va.hostTest() << "sec"  << std::endl;*/
+               std::cout << "\targs:       " << t[2] << "sec"  << std::endl;
+               std::cout << "\tkernel:     " << t[3] << "sec"  << std::endl;
+               std::cout << "\tbuffer-out: " << t[4] << "sec"  << std::endl;
                img.save("img.raw"); // convert -size 256x256 -depth 32 img.raw img.rgb
             }
          }
