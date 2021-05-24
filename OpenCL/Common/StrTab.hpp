@@ -13,8 +13,8 @@
 #ifndef STR_TAB_HPP
 #define STR_TAB_HPP
 
-// Factorisation experiments
-#include "Table.hpp"
+// DEPRECATED: Factorisation experiments
+//#include "Table.hpp"
 
 
 // Templated base class allows tuning for different applications

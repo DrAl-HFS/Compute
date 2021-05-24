@@ -92,7 +92,7 @@ int queryDevPfm (cl_device_id idDev[], int maxD, cl_platform_id idPfm[], int max
    std::cout << "Build target : OpenCl V" << CL_TARGET_OPENCL_VERSION << std::endl;
    if ((maxPfm > 0) && (clGetPlatformIDs(maxPfm, idPfm, &nPfm) >= 0))
    {
-      std::cout << nPfm << "platform(s):" << std::endl;
+      std::cout << nPfm << " platform(s):" << std::endl;
 
       for (int iP= 0; iP < nPfm; iP++)
       {
