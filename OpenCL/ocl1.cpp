@@ -42,23 +42,32 @@ struct HostArgs
 
    HostArgs (void) : pR{NULL}, pA{NULL}, pB{NULL}, n{0} { ; }
 
-   bool allocate (size_t nElem)
+   size_t allocate (size_t nElem)
    {
-      if ((NULL == pR) && (NULL == pA) && (NULL == pB))
+      if ((nElem > 0) && (NULL == pR) && (NULL == pA) && (NULL == pB))
       {
-         n= nElem;
-         pR= new Scalar[n]; pA= new Scalar[n]; pB= new Scalar[n];
-         return(pR && pA && pB);
+         pR= new Scalar[nElem]; pA= new Scalar[nElem]; pB= new Scalar[nElem];
+         if (pR && pA && pB)
+         {
+            n= nElem;
+            return(n * sizeof(Scalar));
+         }
       }
       //else
-      return(false);
-   }
+      return(0);
+   } // allocate
+
    bool release (void)
    {
-      delete [] pR; delete [] pA; delete [] pB;
+      if (pR) { delete [] pR; }
+      if (pA) { delete [] pA; }
+      if (pB) { delete [] pB; }
       pR= pA= pB= NULL;
       return(true);
-   }
+   } // release
+
+   // return number of work groups for local size l and global size n
+   size_t nwg (size_t l) const { return((n + l - 1) / l); }
 }; // HostArgs
 
 struct DeviceArgs
@@ -67,15 +76,23 @@ struct DeviceArgs
    size_t bytes;  // size of each buffer (on both host and device)
 
    DeviceArgs (void) : hR{0}, hA{0}, hB{0}, bytes{0} { ; }
-   bool allocate (size_t nElem, cl_context ctx)
+   bool allocate (size_t buffBytes, cl_context ctx)
    {
       cl_int r[3];
-      bytes= sizeof(Scalar) * nElem;
-      hR= clCreateBuffer(ctx, CL_MEM_WRITE_ONLY, bytes, NULL, r+0);
-      hA= clCreateBuffer(ctx, CL_MEM_READ_ONLY, bytes, NULL, r+1);
-      hB= clCreateBuffer(ctx, CL_MEM_READ_ONLY, bytes, NULL, r+2);
-      return((r[0] >= 0) && (r[1] >= 0) && (r[2] >= 0));
-   }
+      if ((buffBytes > 0) && (0 == hR) && (0 == hA) && (0 == hB))
+      {
+         hR= clCreateBuffer(ctx, CL_MEM_WRITE_ONLY, buffBytes, NULL, r+0);
+         hA= clCreateBuffer(ctx, CL_MEM_READ_ONLY, buffBytes, NULL, r+1);
+         hB= clCreateBuffer(ctx, CL_MEM_READ_ONLY, buffBytes, NULL, r+2);
+         if ((r[0] >= 0) && (r[1] >= 0) && (r[2] >= 0))
+         {
+            bytes= buffBytes;
+            return(true);
+         }
+      }
+      return(false);
+   } // allocate
+
    bool release (void)
    {
       cl_int r[3];
@@ -84,7 +101,8 @@ struct DeviceArgs
       r[2]= clReleaseMemObject(hB);
       hR= hA= hB= 0;
       return((r[0] >= 0) && (r[1] >= 0) && (r[2] >= 0));
-   }
+   } // release
+
 }; // DeviceArgs
 
 void initData (const HostArgs& h)
@@ -108,8 +126,7 @@ Scalar sum (const Scalar v[], const size_t n)
 class CVecAddOCL : public CBuildOCL, public CElapsedTime
 {
 protected:
-   // return number of work groups for local & problem size
-   size_t nwg (size_t l, size_t n) { return((n + l - 1) / l); }
+   //size_t nwg (size_t l, size_t n) { return((n + l - 1) / l); }
 
    HostArgs    host;
    DeviceArgs  device;
@@ -117,7 +134,7 @@ protected:
 public:
    bool createArgs (size_t nElem)
    {
-      if (nElem > 0) { return( host.allocate(nElem) && device.allocate(nElem, CSimpleOCL::ctx) ); }
+      if (nElem > 0) { return device.allocate(host.allocate(nElem), CSimpleOCL::ctx); }
       //else
       return(false);
    }
@@ -129,7 +146,7 @@ public:
 
    bool execute (size_t lws, TimeValF *pDT=NULL)
    {
-      size_t gws= lws * nwg(lws, host.n);
+      size_t gws= lws * host.nwg(lws);
       cl_event evt[4];
       cl_int r, wr[2], ar[4];
 
@@ -154,7 +171,7 @@ public:
 
       if (r >= 0)
       {
-         //std::cout << "kernel enqueued" << std::endl;
+         std::cout << "kernel enqueued" << std::endl;
          clFinish(CSimpleOCL::q); // Global sync
          if (pDT) { pDT[2]= elapsed(); }
 
@@ -189,7 +206,6 @@ public:
 
 
 /***/
-
 
 int main (int argc, char *argv[])
 {
