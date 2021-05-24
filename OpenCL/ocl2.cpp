@@ -9,15 +9,13 @@
 #include "Common/Timing.hpp"
 #include "Common/SimpleOCL.hpp"
 #include "Common/QueryOCL.hpp"
+#include "Common/Image.hpp"
 
 
 /***/
 
 #define MAX_PF_ID    2
 #define MAX_DEV_ID   4
-
-typedef uint32_t Index;
-typedef uint32_t Defn;
 
 
 /***/
@@ -27,43 +25,39 @@ typedef uint32_t Defn;
 
 // OpenCL kernel source
 const char imageSrc[]=
-"__kernel void image(__global uint *pI, const uint w, const uint h)\n" \
-"{ size_t iw= get_global_id(0); if (iw < w)" \
-"   { size_t ih= get_global_id(1); if (ih < h)" \
-"      {   size_t j= ih * w + iw;" // Compute 1D index using row stride <w>
+"__kernel void image(__global uint *pI, const ushort2 def)\n" \
+"{ size_t iw= get_global_id(0); if (iw < def.x)" \
+"   { size_t ih= get_global_id(1); if (ih < def.y)" \
+"      {   size_t j= ih * def.x + iw;" // Compute 1D index using row stride <def.x>
 "          pI[j]= j; } } }";
 
-struct HostArgs
+
+struct HostArgs : public CMapImage2D
 {
-   Index *pI;   // host memory buffers
-   Defn  w, h; // elements in each buffer (on both host and device)
+public:
+   size_t n;
 
-   HostArgs (void) : pI{NULL}, w{0}, h{0} { ; }
+   HostArgs (void) : CMapImage2D() { ; }
 
-   size_t allocate (size_t nW, size_t nH)
+   size_t allocate (size_t w, size_t h)
    {
-      if (NULL == pI)
-      {
-         size_t n= nW * nH;
-         pI= new Index[n];
-         if (pI) { w= nW; h= nH; return(n); }
-      }
-      //else
-      return(0);
+      n= CMapImage2D::allocate(w,h);
+      return(n * sizeof(*pI));
    } // allocate
 
-   bool release (void)
-   {  // std::cout << "HostArgs::release()" << std::endl;
-      if (pI)
-      {
-         delete [] pI;
-         pI= NULL;
-         w= h= 0;
-      }
-      return(true);
-   }// release
+   bool release (void) { n=0; return CMapImage2D::release(); }
 
-}; // HostArgs
+   size_t nwg (size_t n, size_t l) const { return((n + l - 1) / l); }
+
+   // set work groups for local and global sizes on each axis
+   void setGWS (size_t gws[], const size_t l[]) const
+   {
+      for (int i=0; i<2; i++)
+      {
+         gws[i]= l[i] * nwg(def.s[i], l[i]);
+      }
+   }
+}; // CMapImage
 
 struct DeviceArgs
 {
@@ -71,14 +65,20 @@ struct DeviceArgs
    size_t bytes;  // size of each buffer (on both host and device)
 
    DeviceArgs (void) : hI{0}, bytes{0} { ; }
-   size_t allocate (size_t nElem, cl_context ctx)
+
+   bool allocate (size_t buffBytes, cl_context ctx)
    {
       cl_int r;
-      bytes= sizeof(Index) * nElem;
-      hI= clCreateBuffer(ctx, CL_MEM_WRITE_ONLY|CL_MEM_HOST_READ_ONLY, bytes, NULL, &r);
-      if (r >= 0) { return(bytes); }
-      //else
-      return(0);
+      if (buffBytes > 0)
+      {
+         hI= clCreateBuffer(ctx, CL_MEM_WRITE_ONLY|CL_MEM_HOST_READ_ONLY, buffBytes, NULL, &r);
+         if (r >= 0)
+         {
+            bytes= buffBytes;
+            return(true);
+         }
+      }
+      return(false);
    } // allocate
 
    bool release (void)
@@ -104,19 +104,7 @@ protected:
 public:
    bool createArgs (size_t w, size_t h)
    {
-      if ((w > 0) && (h > 0))
-      {
-         size_t nElem= host.allocate(w,h);
-         //std::cout << "createArgs(" << w << ", " << h << ") -\n\tnElem=" << nElem << std::endl;
-         if (nElem > 0)
-         {
-            size_t bytes= device.allocate(nElem, CSimpleOCL::ctx);
-            //std::cout << "\tbytes=" << bytes << std::endl;
-            return(bytes > 0);
-         }
-      }
-      //else
-      return(false);
+      return device.allocate( host.allocate(w,h), CSimpleOCL::ctx );
    } // createArgs
 
    CImageOCL () { ; }
@@ -128,36 +116,38 @@ public:
    {
       size_t gws[2];
       cl_event evt[2];
-      cl_int r, wr[2], ar[4];
+      cl_int r, wr[2], ar[2];
 
-      gws[0]= lws[0] * nwg(lws[0], host.w);
-      gws[1]= lws[1] * nwg(lws[1], host.h);
+      host.setGWS(gws, lws);
       //std::cout << "lws: " << lws[0] << ", " << lws[1] << std::endl;
       //std::cout << "gws: " << gws[0] << ", " << gws[1] << std::endl;
 
       // Set args on device
       ar[0]= clSetKernelArg(CBuildOCL::idKern, 0, sizeof(device.hI), &(device.hI));
-      ar[1]= clSetKernelArg(CBuildOCL::idKern, 1, sizeof(host.w), &(host.w));
-      ar[2]= clSetKernelArg(CBuildOCL::idKern, 2, sizeof(host.h), &(host.h));
+      ar[1]= clSetKernelArg(CBuildOCL::idKern, 1, sizeof(host.def), &(host.def));
       if (pDT) { pDT[0]= elapsed(); }
-      //std::cout << "ar: " << ar[0] << ", " << ar[1] << ", " << ar[2] << std::endl;
+      //std::cout << "ar: " << ar[0] << ", " << ar[1] << std::endl;
 
-      // Submit kernel job
-      r= clEnqueueNDRangeKernel(CSimpleOCL::q, CBuildOCL::idKern, 2, NULL, gws, lws, 0, NULL, evt+0);
+      try
+      {  // Submit kernel job
+         r= clEnqueueNDRangeKernel(CSimpleOCL::q, CBuildOCL::idKern, 2, NULL, gws, lws, 0, NULL, evt+0);
 
-      if (r >= 0)
-      {
-         //std::cout << "kernel enqueued" << std::endl;
-         clFinish(CSimpleOCL::q); // Global sync
-         if (pDT) { pDT[2]= elapsed(); }
-         //std::cout << "kernel complete" << std::endl;
+         if (r >= 0)
+         {
+            std::cout << "kernel enqueued" << std::endl;
+            r= clFinish(CSimpleOCL::q); // Global sync
 
-         // Read the results (sync.) from the device
-         r= clEnqueueReadBuffer(CSimpleOCL::q, device.hI, CL_BLOCKING, 0, device.bytes, host.pI, 0, NULL, evt+1);
-         if (pDT) { pDT[3]= elapsed(); }
-         //std::cout << "buffer read complete" << std::endl;
-      }
-      else { std::cout << "enqueue r=" << r << std::endl; }
+            if (pDT) { pDT[2]= elapsed(); }
+            std::cout << "kernel completion= " << r << std::endl;
+
+            // Read the results (sync.) from the device
+            r= clEnqueueReadBuffer(CSimpleOCL::q, device.hI, CL_BLOCKING, 0, device.bytes, host.pI, 0, NULL, evt+1);
+            if (pDT) { pDT[3]= elapsed(); }
+            //std::cout << "buffer read complete" << std::endl;
+         }
+         else { std::cout << "enqueue r=" << r << std::endl; }
+      } catch (const std::exception& e) { std::cout << "EXCEPT: " << e.what() << std::endl; }
+
       return(r >= 0);
    } // execute
 
@@ -171,7 +161,7 @@ public:
    int verify (void)
    {
       int r= -1;
-      size_t n= host.w * host.h;
+      size_t n= host.numElem();
       if (host.pI && n)
       {
          uint32_t v=0;
@@ -181,6 +171,7 @@ public:
       return(r);
    } // verify
 
+   size_t save (const char fileName[]) { return host.save(fileName); }
 }; // CImageOCL
 
 
@@ -226,6 +217,7 @@ int main (int argc, char *argv[])
                if (re <= 1E-6) { r= 0; }
 
                std::cout << "unaccelerated host: " << va.hostTest() << "sec"  << std::endl;*/
+               img.save("img.raw"); // convert -size 256x256 -depth 32 img.raw img.rgb
             }
          }
          else { img.reportBuildLog(); }

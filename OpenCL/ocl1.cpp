@@ -134,7 +134,7 @@ protected:
 public:
    bool createArgs (size_t nElem)
    {
-      if (nElem > 0) { return device.allocate(host.allocate(nElem), CSimpleOCL::ctx); }
+      if (nElem > 0) { return device.allocate( host.allocate(nElem), CSimpleOCL::ctx ); }
       //else
       return(false);
    }
