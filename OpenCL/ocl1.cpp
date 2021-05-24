@@ -32,7 +32,7 @@ void vecAdd (Scalar r[], const Scalar a[], const Scalar b[], const size_t n)
 
 // OpenCL kernel source
 const char vecAddSrc[]=
-"__kernel void vecAdd(__global float *pR, __global float *pA, __global float *pB, const size_t n)\n" \
+"kernel void vecAdd(__global float *pR, __global float *pA, __global float *pB, const size_t n)\n" \
 "{ int id= get_global_id(0); if (id < n) { pR[id]= pA[id] + pB[id]; } }";
 
 struct HostArgs
