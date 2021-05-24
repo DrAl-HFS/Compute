@@ -91,7 +91,7 @@ public:
    CBuildOCL (cl_device_id id=0) : idProg{0},idKern{0},CSimpleOCL(id) { ; }
    ~CBuildOCL () { release(true); }
 
-   bool defaultBuild (const char src[], const char name[])
+   bool defaultBuild (const char src[], const char entryPoint[])
    {
       cl_int r;
       idProg= clCreateProgramWithSource(ctx, 1, &src, NULL, &r);
@@ -102,7 +102,7 @@ public:
          //std::cout << "clBuildProgram() - r=%d" << r);
          if (r >= 0)
          {  // Create the compute kernel in the program we wish to run
-            idKern= clCreateKernel(idProg, name, &r);
+            idKern= clCreateKernel(idProg, entryPoint, &r);
             //std::cout << "clCreateKernel() - r=%d" << r);
          }
       }
