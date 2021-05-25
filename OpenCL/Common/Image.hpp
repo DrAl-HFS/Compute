@@ -15,7 +15,7 @@
 
 typedef cl_ushort Def1D;
 typedef cl_ushort2 Def2D; // union members={ s[2]; (x,y); (s0,s1); (lo,hi); }
-typedef cl_uint MapElement;
+typedef cl_int MapElement;
 
 class CMapImage2D
 {
@@ -49,23 +49,62 @@ public:
       return(true);
    }// release
 
-   size_t save (const char fileName[], uint8_t outByteDepth=1) const
+   void i2u8Hack (uint8_t u[], const int lineI[], const int nI) const
+   {
+      for (int i=0; i<nI; i++)
+      {
+         int v= lineI[i];
+         if (v < 0) { u[i]= -v; } else { u[i]= v; }
+      }
+   } // i2u8Hack
+
+   void i2rgbHack (uint8_t rgb[], const int lineI[], const int nI) const
+   {
+      int j=0;
+      for (int i=0; i<nI; i++)
+      {
+         int v= lineI[i];  // NB - no overflow check...
+         if (v > 0)
+         {  // blue -> magenta -> red +ve
+            rgb[j+0]= v;
+            rgb[j+1]= 0x20;
+            rgb[j+2]= 0xFF-v;
+         }
+         else
+         {  // grey/green -> white -ve
+            rgb[j+0]= rgb[j+2]= 0x20 - v/2;
+            rgb[j+1]= 0x40-v;
+         }
+         j+= 3;
+      }
+   } // i2rgbHack
+
+   size_t save (const char fileName[], uint8_t outFmt=3) const
    {
       size_t bytes= 0;
       const size_t n= numElem();
       if (n > 0)
       {
          auto outFile= std::fstream(fileName, std::ios::out | std::ios::binary);
-         if (1 == outByteDepth)
-         {  // convert -size 256x256 -depth 8 gray:img.raw img.png
-            uint8_t hb[256];
-            uint32_t o=0;
-            for (int l=0; l<def.y; l++)
+         if (outFmt > 0)
+         {  // Example commandline ImageMagick conversions:
+            // convert -size 256x256 -depth 8 gray:img.raw img.png
+            // convert -size 256x256 -depth 8 RGB:img.raw img.png
+            if ((outFmt > 1) && (3 != outFmt)) { outFmt= 1; }
+            const size_t lineBytes= def.x * outFmt;
+            uint8_t *pB = new uint8_t[lineBytes];
+            if (pB)
             {
-               for (int i=0; i<def.x; i++) { hb[i]= pI[o+i]; }
-               outFile.write((const char *)hb, sizeof(hb));
-               bytes+= sizeof(hb);
-               o+= def.x;
+               size_t o= 0;
+               for (int l=0; l<def.y; l++)
+               {
+                  if (3 == outFmt) { i2rgbHack(pB, pI+o, def.x); }
+                  else { i2u8Hack(pB, pI+o, def.x); }
+                  o+= def.x;
+                  outFile.write((const char *)pB, lineBytes);
+                  bytes+= lineBytes;
+               }
+               delete [] pB;
             }
          }
          else
@@ -77,7 +116,8 @@ public:
          outFile.close();
       }
       return(bytes);
-   }
+   } // save
+
 }; // CMapImage2D
 
 #endif // MAP_IMAGE_HPP

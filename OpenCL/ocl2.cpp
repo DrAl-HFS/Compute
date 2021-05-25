@@ -23,22 +23,22 @@
 
 // Generate a simple map of element indices - easily verified
 const char idxImgSrc[]=
-"kernel void image (__global uint *pI, const ushort2 def)\n" \
+"kernel void image (__global int *pI, const ushort2 def)\n" \
 "{ size_t x= get_global_id(0); if (x < def.x)" \
 "   { size_t y= get_global_id(1); if (y < def.y)" \
 "      {   size_t i= y * def.x + x;" // Compute 1D index using row stride <def.x>
 "          pI[i]= i; } } }";
 
-// Generate distance map of a centre point - visually verifiable
+// Generate distance map of a circle - visually verifiable
 const char dmapImgSrc[]=
-"kernel void image (__global uint *pI, const ushort2 def, const float2 c)\n" \
+"kernel void image (__global int *pI, const ushort2 def, const float2 c, const float r)\n" \
 "{ ushort2 u;"\
 "  float2 f;"\
 "  u.x= get_global_id(0);"\
 "  u.y= get_global_id(1);"\
 "  if ((u.x < def.x) && (u.y < def.y)) {" \
 "    f.x= u.x; f.y= u.y; "\
-"    uint s= distance(f,c);"\
+"    int s= distance(f,c) - r;"\
 "    pI[(size_t)u.y * def.x + u.x]= s; } }";
 
 
@@ -119,11 +119,11 @@ public:
 
    //defaultBuild
 
-   bool execute (size_t lws[2], const cl_float2 vGeom[], const int nGeom, TimeValF *pDT=NULL)
+   bool execute (size_t lws[2], const cl_float vGeom[], const int nGeom, TimeValF *pDT=NULL)
    {
       size_t gws[2];
       cl_event evt[2];
-      cl_int r, wr[2], ar[3];
+      cl_int r, wr[2], ar[4];
 
       host.setGWS(gws, lws);
       //std::cout << "lws: " << lws[0] << ", " << lws[1] << std::endl;
@@ -132,10 +132,13 @@ public:
       // Set args on device
       ar[0]= clSetKernelArg(CBuildOCL::idKern, 0, sizeof(device.hI), &(device.hI));
       ar[1]= clSetKernelArg(CBuildOCL::idKern, 1, sizeof(host.def), &(host.def));
-      if (nGeom > 0)
+      if (nGeom >= 2)
       {
-         int i= 0;
-         ar[2]= clSetKernelArg(CBuildOCL::idKern, 2+i, sizeof(vGeom[i]), vGeom+i);
+         ar[2]= clSetKernelArg(CBuildOCL::idKern, 2, sizeof(cl_float2), vGeom);
+         if (nGeom >= 3)
+         {
+            ar[3]= clSetKernelArg(CBuildOCL::idKern, 3, sizeof(cl_float), vGeom+2);
+         }
       }
       if (pDT) { pDT[0]= elapsed(); }
       //std::cout << "ar: " << ar[0] << ", " << ar[1] << std::endl;
@@ -206,7 +209,8 @@ int main (int argc, char *argv[])
 
       if (img.create(idDev[0]) && img.createArgs(256,256))
       {
-         cl_float2 c={128,128};
+         const cl_float cr[]={128,128,16};
+         const int nG=3;
 
          t[0]= img.elapsed();
          std::cout << "context created: " << t[0] << "sec" << std::endl;
@@ -215,9 +219,9 @@ int main (int argc, char *argv[])
             t[1]= img.elapsed();
             std::cout << "build OK: " << t[1] << "sec" << std::endl;
 
-            if (img.execute(lws, &c, 1, t+2))
+            if (img.execute(lws, cr, nG, t+2))
             {
-               //r= img.verify();
+               if (0 == nG) { r= img.verify(); } else { r= 0; }
                std::cout << "execution: r=" << r << std::endl;
                std::cout << "\targs:       " << t[2] << "sec"  << std::endl;
                std::cout << "\tkernel:     " << t[3] << "sec"  << std::endl;
