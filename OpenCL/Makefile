@@ -29,13 +29,20 @@ endif
 #HACKS?=
 LIBS:= -lOpenCL -lm -lstdc++
 
-all : $(TARGET) $(MAKEFILE)
-
 $(TARGET) : $(SRC) $(HDR) $(MAKEFILE)
 	$(CC) $(OPT) $(SRC) $(DEFINES) $(HACKS) $(LIBS) -o $@
+
+
+.PHONY: all run clean rgb
+
+all : $(TARGET) $(MAKEFILE)
 
 run : $(TARGET)
 	./$(TARGET)
 
 clean :
 	rm $(TARGET)
+
+rgb :
+	convert -size 256x256 -depth 8 RGB:img.raw img.png
+	display img.png

@@ -91,10 +91,13 @@ public:
    CBuildOCL (cl_device_id id=0) : idProg{0},idKern{0},CSimpleOCL(id) { ; }
    ~CBuildOCL () { release(true); }
 
-   bool defaultBuild (const char src[], const char entryPoint[])
+   // Wrapper (overload) for single source
+   bool defaultBuild (const char src[], const char entryPoint[]) { return defaultBuild(&src, 1, entryPoint); }
+
+   bool defaultBuild (const char *srcTab[], const int nSrc, const char entryPoint[])
    {
       cl_int r;
-      idProg= clCreateProgramWithSource(ctx, 1, &src, NULL, &r);
+      idProg= clCreateProgramWithSource(ctx, nSrc, srcTab, NULL, &r);
       //std::cout << "clCreateProgramWithSource() - r=%d" << r);
       if (r >= 0)
       {  // simple build for default device
