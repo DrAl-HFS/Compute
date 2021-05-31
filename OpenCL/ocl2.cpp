@@ -9,7 +9,7 @@
 #include "Common/Timing.hpp"
 #include "Common/SimpleOCL.hpp"
 #include "Common/QueryOCL.hpp"
-#include "Common/Image.hpp"
+#include "Common/MapImage.hpp"
 
 
 /***/
