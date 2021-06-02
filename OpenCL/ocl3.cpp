@@ -76,8 +76,8 @@ int verify (const CMapImageOCL& m) { return(0); }
 CMapImageOCL img; // global to avoid segment violation
 Def2D gDef={256,256};
 //const ExtArgs dmapEA(Coord2D(128,128));
-const MandelGeomArgs mandelGA(Complex2D(-0.909, -0.275), Complex2D(0.005,0.005), gDef);
-//const MandelGeomArgs mandelGA(Complex2D(), Complex2D(2.5,2.5));
+//const MandelGeomArgs mandelGA(Complex2D(-0.909, -0.275), Complex2D(1E-6,1E-6), gDef);
+const MandelGeomArgs mandelGA(Complex2D(-1,0), Complex2D(1.5,1.5), gDef);
 
 
 //const KernInfo idx(idxImgSrc);
