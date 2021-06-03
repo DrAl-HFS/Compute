@@ -23,7 +23,7 @@ public:
 
    virtual uint8_t nArgs (void) const = 0;
 
-   virtual const Scalar *get (size_t& bytes, uint8_t i) const = 0;
+   virtual const Scalar *get (size_t& bytes, uint8_t i, Scalar *pR=NULL, const Def2D *pD=NULL) const = 0;
 }; // GeomArgs
 
 class EmptyGeomArgs : public GeomArgs
@@ -33,7 +33,7 @@ public:
 
    uint8_t nArgs (void) const override { return(0); }
 
-   const Scalar *get (size_t& bytes, uint8_t i) const override { bytes=0; return(NULL); }
+   const Scalar *get (size_t& bytes, uint8_t i, Scalar *pR=NULL, const Def2D *pD=NULL) const override { bytes=0; return(NULL); }
 }; // EmptyGeomArgs
 
 struct KernInfo
@@ -128,6 +128,7 @@ public:
       size_t gws[2];
       cl_event evt[2];
       cl_int r, wr[2], ar[4];
+      Scalar derivArgs[2];
 
       host.setGWS(gws, lws);
       //std::cout << "lws: " << lws[0] << ", " << lws[1] << std::endl;
@@ -144,7 +145,7 @@ public:
          ar[2]= clSetKernelArg(CBuildOCL::idKern, 2, b, p);
          if (n > 1)
          {
-            p= ga.get(b,1);
+            p= ga.get(b, 1, derivArgs, &(host.def));
             ar[3]= clSetKernelArg(CBuildOCL::idKern, 3, b, p);
          }
       }

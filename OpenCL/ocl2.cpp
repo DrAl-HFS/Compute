@@ -59,7 +59,7 @@ public:
 
    uint8_t nArgs (void) const override { return(2); }
 
-   const Scalar *get (size_t& bytes, uint8_t i) const override
+   const Scalar *get (size_t& bytes, uint8_t i, Scalar *pR=NULL, const Def2D *pD=NULL) const override
    {
       switch(i)
       {
@@ -84,11 +84,12 @@ int verify (const CMapImageOCL& m)
 } // verify
 
 /***/
+Def2D gDef={512,512};
 
 EmptyGeomArgs idxGA;
 KernInfo idxKI(idxKernSrc, &idxGA);
 
-DMapGeomArgs dmapGA(Coord2D(128,128),48);
+DMapGeomArgs dmapGA(Coord2D(0.5*gDef.x,0.5*gDef.y),0.125*(gDef.x+gDef.y));
 KernInfo dmapKI(dmapKernSrc, &dmapGA);
 
 CMapImageOCL img; // global to avoid segment violation
@@ -106,7 +107,7 @@ int main (int argc, char *argv[])
       TimeValF t[5];
       size_t lws[2]={32,32};
 
-      if (img.create(idDev[0]) && img.createArgs(256,256))
+      if (img.create(idDev[0]) && img.createArgs(gDef.x,gDef.y))
       {
          KernInfo *pKI= &dmapKI;
          t[0]= img.elapsed();

@@ -63,12 +63,13 @@ public:
       int j=0;
       for (int i=0; i<nI; i++)
       {
-         int v= lineI[i];  // NB - no overflow check...
-         if (v > 0)
+         int v= lineI[i];
+         if ((v > 255) || (0 == v)) { rgb[j+0]= rgb[j+1]= rgb[j+2]= 0; }
+         else if (v > 0)
          {  // blue -> magenta -> red +ve
-            rgb[j+0]= v;
+            rgb[j+0]= std::min(0xFF,0x20+v);
             rgb[j+1]= 0x20;
-            rgb[j+2]= 0xFF-v;
+            rgb[j+2]= 0xC0 - std::min(0xC0,v);
          }
          else
          {  // grey/green -> white -ve
@@ -88,8 +89,8 @@ public:
          auto outFile= std::fstream(fileName, std::ios::out | std::ios::binary);
          if (outFmt > 0)
          {  // Example commandline ImageMagick conversions:
-            // convert -size 256x256 -depth 8 gray:img.raw img.png
-            // convert -size 256x256 -depth 8 RGB:img.raw img.png
+            // convert -size 512x512 -depth 8 gray:img.raw img.png
+            // convert -size 512x512 -depth 8 RGB:img.raw img.png
             if ((outFmt > 1) && (3 != outFmt)) { outFmt= 1; }
             const size_t lineBytes= def.x * outFmt;
             uint8_t *pB = new uint8_t[lineBytes];

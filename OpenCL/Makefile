@@ -44,5 +44,5 @@ clean :
 	rm $(TARGET)
 
 rgb :
-	convert -size 256x256 -depth 8 RGB:img.raw img.png
+	convert -size 512x512 -depth 8 RGB:img.raw img.png
 	display img.png
