@@ -1,7 +1,7 @@
 // ocl3.cpp - Mandelbrot set.
 // https://github.com/DrAl-HFS/Compute.git
 // Licence: AGPL3
-// (c) Project Contributors May 2021
+// (c) Project Contributors May-July 2021
 
 #include <iostream>
 //#include <cmath>
@@ -16,7 +16,7 @@
 #define MAX_PF_ID    2
 #define MAX_DEV_ID   4
 
-//#include "mandKern.hpp" //return cad1m2(pV, pC); }\n"
+// TODO: adopt less ugly kernel definition scheme ? #include "mandKern.hpp" ?
 const char mandelKernSrc[]=
 "void csq1 (float2 *pV) { float ty= 2 * pV->x * pV->y; pV->x= pV->x * pV->x - pV->y * pV->y; pV->y= ty; }\n\n" \
 "float csqad1m2 (float2 *pV, const float2 *pC) { csq1(pV); *pV+= *pC; return dot(*pV,*pV); }\n\n" \
@@ -33,7 +33,7 @@ const char mandelKernSrc[]=
 "    c.x= c0.x + dc.x * u.x;\n" \
 "    c.y= c0.y + dc.y * u.y;\n" \
 "    pI[(size_t)u.y * def.x + u.x]= mandel(&c, 256, 1E12); } }\n";
-//127;\n\n } }\n"; //
+
 struct Complex2D
 {
    union { struct { Scalar r,i; }; Scalar s[2]; }; // anon
